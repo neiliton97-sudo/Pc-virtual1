@@ -1,0 +1,30 @@
+name: PC Virtual Tailscale
+
+on:
+  workflow_dispatch: # Permite iniciar o PC virtual manualmente pelo site do GitHub
+
+jobs:
+  build:
+    runs-on: windows-latest # Define que o PC virtual vai usar o Windows do GitHub
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar e Conectar o Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+
+      - name: Habilitar Área de Trabalho Remota (RDP) e Manter Aberto
+        run: |
+          # Ativa o RDP nas configurações do Windows do runner
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          
+          Write-Host "PC Virtual conectado com sucesso via Tailscale!"
+          Write-Host "Você já pode acessar este IP através do app do Windows usando o IP do Tailscale atribuído a este runner."
+
+          # Mantém a máquina ligada por até 6 horas (máximo permitido pelo GitHub Actions)
+          Start-Sleep -Seconds 21600
