@@ -1,0 +1,59 @@
+name: PC Virtual Windows Avançado
+
+on:
+  workflow_dispatch: # Iniciar manualmente na aba Actions
+
+jobs:
+  run-virtual-pc:
+    runs-on: windows-latest
+
+    steps:
+      - name: 1. Preparar Ambiente e Otimizar
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+        shell: powershell
+
+      - name: 2. Instalar Programas Utilitarios (Sem Erros - Usando Choco)
+        run: |
+          choco install googlechrome 7zip git -y --no-progress
+        shell: powershell
+
+      - name: 3. Instalar e Autenticar Tailscale
+        run: |
+          # Baixa o instalador oficial direto do Tailscale
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
+          
+          # Executa a instalação silenciosa e aguarda a conclusão
+          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
+          
+          # Aguarda 5 segundos para o serviço iniciar completamente
+          Start-Sleep -Seconds 5
+          
+          # Executa o comando de conexão usando o executável direto do sistema
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --unattended --accept-routes
+        shell: powershell
+
+      - name: 4. Criar Usuario de Acesso RDP
+        run: |
+          net user RunnerAdmin PCVirtual123! /add
+          net localgroup administrators RunnerAdmin /add
+          Write-Host "---------------------------------------------------"
+          Write-Host "USUARIO RDP: RunnerAdmin"
+          Write-Host "SENHA RDP:   PCVirtual123!"
+          Write-Host "---------------------------------------------------"
+        shell: powershell
+
+      - name: 5. Manter PC Virtual Online (6 Horas Ativo)
+        run: |
+          $timeout = 21600 # 6 Horas em Segundos
+          $interval = 30
+          $elapsed = 0
+          Write-Host "PC Virtual Ativo no Tailscale! Conecte-se pelo IP do seu painel Tailscale."
+          while ($elapsed -lt $timeout) {
+              Start-Sleep -Seconds $interval
+              $elapsed += $interval
+              Write-Host "Tempo de Execucao: $elapsed / $timeout segundos..."
+          }
+        shell: powershell
