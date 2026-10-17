@@ -1,0 +1,52 @@
+name: PC Virtual Windows Mx Performance
+
+on:
+  workflow_dispatch: # Iniciar manualmente na aba Actions
+
+jobs:
+  run-virtual-pc:
+    runs-on: windows-latest
+
+    steps:
+      - name: 1. Habilitar RDP de Forma Simples
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -ErrorAction SilentlyContinue
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
+        shell: powershell
+
+      - name: 2. Otimizar Desempenho e Memoria
+        run: |
+          powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>$null
+          powercfg /setactive e9a42b02-d5df-448d-aa00-03f14749eb61 2>$null
+        shell: powershell
+
+      - name: 3. Instalar e Autenticar Tailscale
+        run: |
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
+          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
+          Start-Sleep -Seconds 5
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --unattended --accept-routes
+        shell: powershell
+
+      - name: 4. Criar Usuario de Acesso RDP
+        run: |
+          net user RunnerAdmin PCVirtual123! /add
+          net localgroup administrators RunnerAdmin /add
+          Write-Host "---------------------------------------------------"
+          Write-Host "USUARIO RDP: RunnerAdmin"
+          Write-Host "SENHA RDP:   PCVirtual123!"
+          Write-Host "---------------------------------------------------"
+        shell: powershell
+
+      - name: 5. Manter PC Virtual Online (6 Horas Ativo)
+        run: |
+          $timeout = 21600 # 6 Horas
+          $interval = 30
+          $elapsed = 0
+          Write-Host "PC Virtual pronto! Conecte pelo IP do Tailscale."
+          while ($elapsed -lt $timeout) {
+              Start-Sleep -Seconds $interval
+              $elapsed += $interval
+              Write-Host "Status: Online ($elapsed / $timeout seg)..."
+          }
+        shell: powershell
